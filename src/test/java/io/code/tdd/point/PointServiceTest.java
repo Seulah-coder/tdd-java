@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import io.code.tdd.database.UserPointTable;
 import io.code.tdd.exception.InsufficientBalanceException;
+import io.code.tdd.exception.MaxBalanceExceededException;
 import io.code.tdd.database.PointHistoryTable;
 
 @ExtendWith(MockitoExtension.class)
@@ -94,6 +95,21 @@ class PointServiceTest {
             pointService.usePoint(userId, amount);
         });
 
+    }
+
+    @Test
+    void chargePoint_MaxBalanceExceeded_Test() {
+        // given
+        long userId = 1L;
+
+        UserPoint before = new UserPoint(userId, 9_900L, System.currentTimeMillis());
+        when(userPointTable.selectById(userId)).thenReturn(before);
+
+        // when & then
+        assertThrows(
+            MaxBalanceExceededException.class,
+            () -> pointService.chargePoint(userId, 200L)
+        );
     }
 
     
