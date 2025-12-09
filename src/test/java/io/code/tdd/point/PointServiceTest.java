@@ -10,6 +10,7 @@ import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 import io.code.tdd.database.UserPointTable;
+import io.code.tdd.exception.InsufficientBalanceException;
 import io.code.tdd.database.PointHistoryTable;
 
 @ExtendWith(MockitoExtension.class)
@@ -54,6 +55,45 @@ class PointServiceTest {
 
     //then
     assertEquals(600L, result.point());
+    }
+
+    @Test
+    void usePointTest(){
+
+        //given
+        long userId = 1L;
+        long amount = 300L;
+
+        UserPoint before = new UserPoint(userId, 500L, System.currentTimeMillis());
+        UserPoint after = new UserPoint(userId, 200L, System.currentTimeMillis());
+
+        when(userPointTable.selectById(userId)).thenReturn(before);
+        when(userPointTable.insertOrUpdate(eq(userId), eq(200L))).thenReturn(after);
+
+        //when
+        UserPoint result = pointService.usePoint(userId, amount);
+
+        //then
+        assertEquals(after, result);
+
+    }
+
+    @Test
+    void usePoint_InsufficientBalanceException_Test(){
+
+        //given
+        long userId = 1L;
+        long amount = 600L;
+
+        UserPoint before = new UserPoint(userId, 500L, System.currentTimeMillis());
+
+        when(userPointTable.selectById(userId)).thenReturn(before);
+
+        //when & then
+        assertThrows(InsufficientBalanceException.class, () -> {
+            pointService.usePoint(userId, amount);
+        });
+
     }
 
     
