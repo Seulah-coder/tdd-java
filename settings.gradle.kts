@@ -12,4 +12,4 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "tdd-jvm"
+rootProject.name = "tdd-java"
