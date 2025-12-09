@@ -27,10 +27,10 @@ public class PointService {
     }
 
     public UserPoint chargePoint(long userId, long amount) {
-            UserPoint currentPoint = Optional.ofNullable(
-            userPointTable.selectById(userId)
-        )
-        .orElseThrow(() -> new UserNotFoundException(userId));
+    
+    UserPoint currentPoint = Optional.ofNullable(
+        userPointTable.selectById(userId)
+        ).orElseGet(() -> UserPoint.empty(userId));
 
     long newAmount = currentPoint.point() + amount;
     UserPoint updatedPoint = userPointTable.insertOrUpdate(userId, newAmount);
