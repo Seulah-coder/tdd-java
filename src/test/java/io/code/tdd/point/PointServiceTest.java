@@ -25,6 +25,18 @@ class PointServiceTest {
     private PointService pointService;
 
     @Test
+    void getUserPointTest(){
+    //given
+    UserPoint userPoint = new UserPoint(1L, 1000L, System.currentTimeMillis());
+    when(userPointTable.selectById(1L)).thenReturn(userPoint);
+    //when
+    UserPoint point = pointService.getUserPoint(1L);
+
+    //then
+    assertEquals(1000L, point.point());
+    }
+
+    @Test
     void addPointTest(){
 
     //given
