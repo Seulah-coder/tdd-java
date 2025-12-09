@@ -1,22 +1,34 @@
 package io.code.tdd.point;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.stereotype.Service;
 
 import io.code.tdd.database.PointHistoryTable;
 import io.code.tdd.database.UserPointTable;
 import io.code.tdd.exception.InsufficientBalanceException;
+import io.code.tdd.exception.MaxBalanceExceededException;
 import io.code.tdd.exception.UserNotFoundException;
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class PointService {
+    private static final long MAX_BALANCE = 10_000L;
 
     private final UserPointTable userPointTable;
     private final PointHistoryTable pointHistoryTable;
+
+    //유저별 LOCK 저장
+    private final Map<Long, Object> locks = new ConcurrentHashMap<>();
+
+    //유저별 LOCK 반환
+        private Object getLock(long userId) {
+        return locks.computeIfAbsent(userId, id -> new Object());
+    }
 
     public UserPoint getUserPoint(long userId) {
         return userPointTable.selectById(userId);
@@ -27,22 +39,30 @@ public class PointService {
     }
 
     public UserPoint chargePoint(long userId, long amount) {
-    
-    UserPoint currentPoint = Optional.ofNullable(
-        userPointTable.selectById(userId)
-        ).orElseGet(() -> UserPoint.empty(userId));
+        
+        synchronized(getLock(userId)){
+            System.out.println(Thread.currentThread().getName() + " 실행 시작");
+            UserPoint currentPoint = Optional.ofNullable(
+            userPointTable.selectById(userId)
+            ).orElseGet(() -> UserPoint.empty(userId));
 
-    long newAmount = currentPoint.point() + amount;
-    UserPoint updatedPoint = userPointTable.insertOrUpdate(userId, newAmount);
+            if(amount + currentPoint.point() > MAX_BALANCE){
+                throw new MaxBalanceExceededException(currentPoint.point());
+            }
 
-    pointHistoryTable.insert(
-        userId,
-        amount,
-        TransactionType.CHARGE,
-        System.currentTimeMillis()
-    );
+            long newAmount = currentPoint.point() + amount;
+            UserPoint updatedPoint = userPointTable.insertOrUpdate(userId, newAmount);
 
-    return updatedPoint;
+            pointHistoryTable.insert(
+                userId,
+                amount,
+                TransactionType.CHARGE,
+                System.currentTimeMillis()
+            );
+            System.out.println(Thread.currentThread().getName() + " 실행 끝: " + updatedPoint.point());
+
+            return updatedPoint;
+        }
     }
 
     public UserPoint usePoint(long userId, long amount) {
@@ -53,8 +73,7 @@ public class PointService {
 
         if (currentPoint.point() < amount) {
         throw new InsufficientBalanceException(
-                userId,
-                amount
+            currentPoint.point()
         );
     }
 
