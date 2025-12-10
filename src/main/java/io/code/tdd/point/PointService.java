@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.springframework.stereotype.Service;
 
@@ -22,12 +23,19 @@ public class PointService {
     private final UserPointTable userPointTable;
     private final PointHistoryTable pointHistoryTable;
 
-    //유저별 LOCK 저장
-    private final Map<Long, Object> locks = new ConcurrentHashMap<>();
+    // //유저별 LOCK 저장 - synchronized
+    // private final Map<Long, Object> locks = new ConcurrentHashMap<>();
 
-    //유저별 LOCK 반환
-        private Object getLock(long userId) {
-        return locks.computeIfAbsent(userId, id -> new Object());
+    // //유저별 LOCK 반환 - synchronized
+    //     private Object getLock(long userId) {
+    //     return locks.computeIfAbsent(userId, id -> new Object());
+    // }
+
+    //유저별 LOCK 저장 - ReentrantLock
+    private final ConcurrentHashMap<Long, ReentrantLock> locks = new ConcurrentHashMap<>();
+
+    private ReentrantLock getLock(long userId) {
+        return locks.computeIfAbsent(userId, id -> new ReentrantLock());
     }
 
     public UserPoint getUserPoint(long userId) {
@@ -38,9 +46,38 @@ public class PointService {
         return pointHistoryTable.selectAllByUserId(userId);
     }
 
-    public UserPoint chargePoint(long userId, long amount) {
+    // // synchronized 방식
+    // public UserPoint chargePoint(long userId, long amount) {
         
-        synchronized(getLock(userId)){
+    //     synchronized(getLock(userId)){
+    //         System.out.println(Thread.currentThread().getName() + " 실행 시작");
+    //         UserPoint currentPoint = Optional.ofNullable(
+    //         userPointTable.selectById(userId)
+    //         ).orElseGet(() -> UserPoint.empty(userId));
+
+    //         if(amount + currentPoint.point() > MAX_BALANCE){
+    //             throw new MaxBalanceExceededException(currentPoint.point());
+    //         }
+
+    //         long newAmount = currentPoint.point() + amount;
+    //         UserPoint updatedPoint = userPointTable.insertOrUpdate(userId, newAmount);
+
+    //         pointHistoryTable.insert(
+    //             userId,
+    //             amount,
+    //             TransactionType.CHARGE,
+    //             System.currentTimeMillis()
+    //         );
+    //         System.out.println(Thread.currentThread().getName() + " 실행 끝: " + updatedPoint.point());
+
+    //         return updatedPoint;
+    //     }
+    // }
+    //ReentrantLock 방식
+    public UserPoint chargePoint(long userId, long amount) {
+        ReentrantLock lock = getLock(userId);
+        lock.lock();
+        try {
             System.out.println(Thread.currentThread().getName() + " 실행 시작");
             UserPoint currentPoint = Optional.ofNullable(
             userPointTable.selectById(userId)
@@ -62,6 +99,8 @@ public class PointService {
             System.out.println(Thread.currentThread().getName() + " 실행 끝: " + updatedPoint.point());
 
             return updatedPoint;
+        } finally {
+            lock.unlock();
         }
     }
 

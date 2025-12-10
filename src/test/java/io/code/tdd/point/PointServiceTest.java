@@ -39,7 +39,7 @@ class PointServiceTest {
     }
 
     @Test
-    void addPointTest(){
+    void chargePointTest(){
 
     //given
     long userId = 1L;
